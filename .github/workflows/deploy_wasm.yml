@@ -12,16 +12,16 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
 
+
       - name: Setup Emscripten
-        uses: emscripten-core/emsdk@v4
+        uses: mymindstorm/setup-emsdk@v14
         with:
-          version: latest
+          version: 3.1.70
 
       - name: Compile WASM
         run: |
           emcmake cmake -B build -S .
           cmake --build build
-          # Result: The files (ppm_web.js, .wasm, index.html) are now in the 'web' folder
 
       - name: Checkout Website Repo
         uses: actions/checkout@v4
@@ -29,7 +29,6 @@ jobs:
           repository: spookyfoods/spookyfoods.github.io
           token: ${{ secrets.WEBSITE_DEPLOY_TOKEN }}
           path: website-repo
-
 
       - name: Copy Files
         run: |
