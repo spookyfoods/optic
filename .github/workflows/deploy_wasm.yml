@@ -1,0 +1,45 @@
+name: Build and Deploy WASM to Website
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.70
+
+      - name: Compile WASM
+        run: |
+          emcmake cmake -B build -S .
+          cmake --build build
+
+      - name: Checkout Website Repo
+        uses: actions/checkout@v4
+        with:
+          repository: spookyfoods/spookyfoods.github.io
+          token: ${{ secrets.WEBSITE_DEPLOY_TOKEN }}
+          path: website-repo
+
+      - name: Copy Files
+        run: |
+          mkdir -p website-repo/demos/image-processor
+          cp -r web/* website-repo/demos/image-processor/
+
+      - name: Push to Website
+        working-directory: website-repo
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add demos/image-processor
+          git commit -m "Deploy WASM Image Processor from geospatialSomething" || echo "No changes to commit"
+          git push
