@@ -7,7 +7,7 @@ private:
     int width;
     int height;
     int channels;
-    unsigned char* pixelData; // BUCKET B (The raw pixels)
+    unsigned char* pixelData;
 
 public:
     ImageProcessor();
@@ -21,5 +21,5 @@ public:
 
     int getWidth() const;
     int getHeight() const;
-    uintptr_t getPixelDataPtr() const; // Returns address of BUCKET B
+    uintptr_t getPixelDataPtr() const;
 };
