@@ -83,9 +83,9 @@ void ImageProcessor::applyFilter() {
     this->height=newHeight;
     this->width=newWidth;
 
-    for(int i{1};i<height-2;i++){
-        for(int j{1};j<width-2;j++){
-            placeholderFilter(outputGrid,1,1);
+    for(int i{1};i<height-1;i++){
+        for(int j{1};j<width-1;j++){
+            placeholderFilter(inputGrid,outputGrid,i,j);
         }
     }
 
