@@ -12,7 +12,6 @@ void naiveBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
                   size_t inputGridRowNum, size_t inputGridColNum) {
     int borderWidth = (paddedGrid.extent(0) - inputGrid.extent(0)) / 2;
 
-    // Kernel: Box Blur
 
     int sumR = 0;
     int sumG = 0;
@@ -66,11 +65,11 @@ void satBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     uint32_t sumR = p1.r - p2.r - p3.r + p4.r;
     uint32_t sumG = p1.g - p2.g - p3.g + p4.g;
     uint32_t sumB = p1.b - p2.b - p3.b + p4.b;
-    uint32_t sumA = p1.a - p2.a - p3.a + p4.a;
+
 
     inputGrid[inputGridRowNum, inputGridColNum] = {
         static_cast<uint8_t>(sumR / area), static_cast<uint8_t>(sumG / area),
-        static_cast<uint8_t>(sumB / area), static_cast<uint8_t>(sumA / area)};
+        static_cast<uint8_t>(sumB / area), 255};
 }
 
 #endif

@@ -3,33 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WASM Processor | Minimal</title>
+    <title>WebPPM Studio | Artifact Restoration</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* Slider styling */
-        .slider-container { margin: 15px 0; }
-        input[type=range] { width: 100%; margin-top: 5px; cursor: pointer; }
-    </style>
 </head>
 <body>
 
     <main>
-        <h1>WASM Image Bench</h1>
+        <h1>WebPPM Restoration Site</h1>
+
+        <div id="metrics">
+            <ul>
+                <li>Status: <span id="status-val">Initializing...</span></li>
+                <li>Dimensions: <span id="dims-val">N/A</span></li>
+                <li>Memory: <span id="mem-val">0 MB</span></li>
+            </ul>
+        </div>
 
         <section id="controls">
             <fieldset>
-                <legend>Excavation Site</legend>
+                <legend>Excavation Controls</legend>
                 
                 <label for="file-upload">Select Artifact:</label>
                 <input type="file" id="file-upload" accept="image/*" disabled>
                 
+                <hr>
+
+                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <label for="filter-type">Restoration Method:</label>
+                        <select id="filter-type">
+                            <option value="sat">SAT Box Blur (Fast)</option>
+                            <option value="naive">Naive Box Blur (Slow)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="slider-container">
-                    <label for="filter-slider">Filter Intensity: <strong id="slider-display">1</strong></label>
+                    <label for="filter-slider">Restoration Intensity: <strong id="slider-display">1</strong></label>
                     <input type="range" id="filter-slider" min="1" max="25" step="2" value="1">
                 </div>
 
-                <button type="button" id="btn-process" disabled><strong>PROCESS ARTIFACT</strong></button>
-                <span id="status-msg" style="margin-left: 10px; color: #666;">Loading Engine...</span>
+                <div style="margin-top: 1rem;">
+                    <button type="button" id="btn-process" disabled><strong>PROCESS ARTIFACT</strong></button>
+                    <button type="button" id="btn-download-csv" disabled><strong>RETRIEVE DATA LOG</strong></button>
+                </div>
             </fieldset>
         </section>
 
@@ -44,7 +61,7 @@
                 <tbody>
                     <tr>
                         <td align="center" valign="middle">
-                            <img id="source-image" alt="Waiting for input..." />
+                            <img id="source-image" alt="Waiting for input..." style="max-height: 400px;" />
                         </td>
                         
                         <td align="center" valign="middle">
@@ -54,7 +71,16 @@
                 </tbody>
             </table>
         </section>
+
+        <section id="logs">
+            <h3>Excavation Log</h3>
+            <textarea id="console-log" rows="8" readonly></textarea>
+        </section>
     </main>
+
+    <footer>
+        WebPPM Studio // Experimental WASM Build //
+    </footer>
 
     <script src="ppm_web.js"></script>
 
@@ -62,118 +88,175 @@
         // --- Global State ---
         let wasmModule = null;
         let processor = null;
+        let lastExecutionTime = 0;
 
         // UI Elements
         const fileInput = document.getElementById('file-upload');
         const btnProcess = document.getElementById('btn-process');
-        const statusMsg = document.getElementById('status-msg');
+        const btnDownloadCsv = document.getElementById('btn-download-csv');
+        const statusVal = document.getElementById('status-val');
+        const dimsVal = document.getElementById('dims-val');
+        const memVal = document.getElementById('mem-val');
+        const consoleLog = document.getElementById('console-log');
+        
         const sourceImage = document.getElementById('source-image');
         const canvas = document.getElementById('output-canvas');
         const ctx = canvas.getContext('2d');
         
-        // Slider Elements
         const slider = document.getElementById('filter-slider');
         const sliderDisplay = document.getElementById('slider-display');
+        const filterTypeSelect = document.getElementById('filter-type');
+
+        // --- Helper: Logger ---
+        function log(message) {
+            consoleLog.value += message + "\n";
+            consoleLog.scrollTop = consoleLog.scrollHeight; // Auto-scroll
+        }
+
+        // --- Step 1: Initialize Wasm Engine with Config ---
+        const moduleConfig = {
+            print: (text) => log("[C++ stdout] " + text),
+            printErr: (text) => log("[C++ stderr] " + text),
+            onRuntimeInitialized: () => {
+                // Runtime logic handled in .then()
+            }
+        };
+
+        // Initialize Module
+        createModule(moduleConfig).then(instance => {
+            wasmModule = instance;
+            
+            // Create the C++ Object
+            processor = new wasmModule.ImageProcessor();
+            
+            // Unlock UI
+            fileInput.disabled = false;
+            statusVal.textContent = "Engine Ready";
+            log("System: Wasm Module Loaded & Processor Created.");
+        });
 
         // Update display when slider moves
         slider.addEventListener('input', (e) => {
             sliderDisplay.textContent = e.target.value;
         });
 
-        // --- Step 1: Initialize Wasm Engine ---
-        createModule().then(instance => {
-            wasmModule = instance;
-            
-            // Create the C++ Object (ImageProcessor)
-            processor = new wasmModule.ImageProcessor();
-            
-            // Unlock UI
-            fileInput.disabled = false;
-            statusMsg.textContent = "Engine Ready.";
-            console.log("Wasm Module Loaded & Processor Created");
-        });
-
-        // --- Step 2: Handle File Upload (JS -> C++) ---
+        // --- Step 2: Handle File Upload ---
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            statusMsg.textContent = "Uploading to C++ Memory...";
+            statusVal.textContent = "Uploading...";
+            btnProcess.disabled = true;
+            btnDownloadCsv.disabled = true;
 
-            // A. Show Preview (Standard JS)
+            // Preview
             sourceImage.src = URL.createObjectURL(file);
 
-            // B. Read File as Bytes
-            const arrayBuffer = await file.arrayBuffer();
-            const jsData = new Uint8Array(arrayBuffer);
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const jsData = new Uint8Array(arrayBuffer);
 
-            // C. Allocate Memory in Wasm (The "Bucket A")
-            const ptr = wasmModule._malloc(jsData.length);
+                // Allocate Memory
+                const ptr = wasmModule._malloc(jsData.length);
+                wasmModule.HEAPU8.set(jsData, ptr);
 
-            // D. Copy Data to Wasm
-            wasmModule.HEAPU8.set(jsData, ptr);
+                // Call C++
+                log(`System: Loading ${file.name} (${jsData.length} bytes)...`);
+                const success = processor.loadImage(ptr, jsData.length);
+                wasmModule._free(ptr);
 
-            // E. Call C++ to Decode
-            // processor.loadImage(pointer, size)
-            const success = processor.loadImage(ptr, jsData.length);
-
-            // F. Free the "Bucket A" (We don't need the compressed JPG anymore)
-            wasmModule._free(ptr);
-
-            if (success) {
-                statusMsg.textContent = "Image Loaded in C++ RAM.";
-                btnProcess.disabled = false; // Enable the process button
-                
-                // Optional: Draw the initial image to canvas
-                renderCanvas(); 
-            } else {
-                statusMsg.textContent = "Error: Failed to load image.";
+                if (success) {
+                    statusVal.textContent = "Image Loaded";
+                    btnProcess.disabled = false;
+                    
+                    const w = processor.getWidth();
+                    const h = processor.getHeight();
+                    dimsVal.textContent = `${w} x ${h}`;
+                    
+                    // Render initial state
+                    renderCanvas();
+                } else {
+                    statusVal.textContent = "Load Failed";
+                    log("System: Error loading image in C++.");
+                }
+            } catch (err) {
+                log("System Error: " + err.message);
             }
         });
 
-        // --- Step 3: Handle Process Button (C++ Logic) ---
+        // --- Step 3: Process Image ---
         btnProcess.addEventListener('click', () => {
             if (!processor) return;
 
-            statusMsg.textContent = "Processing...";
-
-            // Get the current slider value (parsed as integer)
+            statusVal.textContent = "Processing...";
             const filterValue = parseInt(slider.value, 10);
-
-            // A. Run the Filter Algorithm (In C++)
-            // Passing the slider value as requested
-            processor.applyFilter(filterValue);
-
-            // B. Update the Canvas
+            const selectedMethod = filterTypeSelect.value; // 'sat' or 'naive'
+            
+            const start = performance.now();
+            
+            // Call C++ Filter with string argument
+            // Note: C++ signature is applyFilter(int, std::string)
+            processor.applyFilter(filterValue, selectedMethod);
+            
+            const end = performance.now();
+            lastExecutionTime = (end - start).toFixed(2);
+            
             renderCanvas();
-
-            statusMsg.textContent = "Filter Applied (Strength: " + filterValue + ").";
+            
+            statusVal.textContent = `Done (${lastExecutionTime}ms)`;
+            log(`System: Applied '${selectedMethod}' filter (Size: ${filterValue}) in ${lastExecutionTime}ms.`);
+            
+            // Enable CSV download
+            btnDownloadCsv.disabled = false;
         });
 
-        // --- Helper: Render C++ Pixels to Canvas ---
+        // --- Step 4: Download CSV (Virtual FS) ---
+        btnDownloadCsv.addEventListener('click', () => {
+            try {
+                const filename = "sat_output.csv";
+                const content = wasmModule.FS.readFile(filename);
+                
+                const blob = new Blob([content], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "analysis_data.csv";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                log("System: CSV data retrieved from virtual filesystem.");
+            } catch (e) {
+                log("System Error: Could not retrieve CSV. " + e.message);
+            }
+        });
+
+        // --- Helper: Render ---
         function renderCanvas() {
             const width = processor.getWidth();
             const height = processor.getHeight();
 
-            // Resize canvas to match image
             canvas.width = width;
             canvas.height = height;
 
-            // 1. Get the Address of "Bucket B" (The Pixels)
+            // Access Wasm Memory directly
             const pixelPtr = processor.getPixelDataPtr();
-
-            // 2. Create a JS View into Wasm Memory
-            // Uint8ClampedArray is required for Canvas ImageData
-            // We look directly at the Wasm Heap without copying!
             const wasmPixels = new Uint8ClampedArray(
                 wasmModule.HEAPU8.buffer, 
                 pixelPtr, 
-                width * height * 4 // 4 bytes per pixel (RGBA)
+                width * height * 4
             );
 
-            // 3. Paint to Screen
             const imageData = new ImageData(wasmPixels, width, height);
             ctx.putImageData(imageData, 0, 0);
+
+            // Update Memory Metric
+            if (wasmModule.HEAPU8.buffer.byteLength) {
+                const mb = (wasmModule.HEAPU8.buffer.byteLength / (1024 * 1024)).toFixed(1);
+                memVal.textContent = `${mb} MB`;
+            }
         }
     </script>
 </body>

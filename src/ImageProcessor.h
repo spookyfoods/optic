@@ -25,7 +25,7 @@ public:
                         std::mdspan<Pixel, std::dextents<size_t, 2>> paddedGrid
                         );
 
-    void applyFilter(int kernelSize);
+    void applyFilter(int kernelSize, std::string filterType);
 
     int getWidth() const;
     int getHeight() const;

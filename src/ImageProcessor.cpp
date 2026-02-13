@@ -1,6 +1,5 @@
 #include "ImageProcessor.h"
 #include "Pixel.h"
-#include "isPrime.h"
 #include <Filters.h>
 #include <cstdint>
 #include <iostream>
@@ -81,12 +80,12 @@ bool ImageProcessor::createPadding(int newWidth, int newHeight, int borderWidth,
 
     return true;
 }
-void ImageProcessor::applyFilter(int kernelSize) {
+void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
     if(!pixelData) {
         std::cerr << "[C++] Failed to process image." << std::endl;
     }
     // kernel size must be odd and a square => (2n+1) x (2n+1)
-    bool create_sat{true};
+    bool create_sat{filterType=="sat"};
     int borderWidth = ((kernelSize - 1) / 2) + static_cast<int>(create_sat);
     int newWidth{width + 2 * (borderWidth)};
     int newHeight{height + 2 * (borderWidth)};
@@ -125,16 +124,23 @@ void ImageProcessor::applyFilter(int kernelSize) {
     }
     std::cout << "\nInput Pix[0,0]:\t"<<(int)inputGrid[0,0].r<<" "<<(int)inputGrid[0,0].g<<" "<<(int)inputGrid[0,0].b<<"\n";
     // Iterating through the cells of input grid
-
-    for(int i{0}; i < height; i++) {
-        for(int j{0}; j < width; j++) {
-            satBoxBlur(inputGrid, paddedGrid, satGrid,i,j, kernelSize);
+    if(create_sat){
+        std::cout << "\nRUNNING SAT BOX BLUR" << std::endl;
+        for(int i{0}; i < height; i++) {
+            for(int j{0}; j < width; j++) {
+                satBoxBlur(inputGrid, paddedGrid, satGrid,i,j, kernelSize);
+            }
+        }
+    }else{
+        std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
+        for(int i{0}; i < height; i++) {
+            for(int j{0}; j < width; j++) {
+                naiveBoxBlur(inputGrid, paddedGrid,i,j);
+            }
         }
     }
     std::cout << "\nInput Pix[0,0]:\t"<<(int)inputGrid[0,0].r<<" "<<(int)inputGrid[0,0].g<<" "<<(int)inputGrid[0,0].b<<"\n";
 
-    saveSATToCSV("sat_output.csv", satGrid, newHeight, newWidth);
-    // __builtin_trap();
 
 }
 
