@@ -8,6 +8,7 @@ private:
     int height;
     int channels;
     unsigned char* pixelData;
+    uint32_t* satPixelData;
 
 public:
     ImageProcessor();

@@ -1,6 +1,7 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
+#include <mdspan>
 #include "ImageProcessor.h"
 #include <Pixel.h>
 #include <mdspan>
@@ -11,6 +12,8 @@ void placeholderFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
                        const std::mdspan<Pixel, std::dextents<size_t, 2>>& outputGrid, 
                        size_t inputGridRowNum, size_t inputGridColNum) {
     int borderWidth = (outputGrid.extent(0)-inputGrid.extent(0))/2;
+
+
     // Kernel: Box Blur
     
     int sumR = 0;
