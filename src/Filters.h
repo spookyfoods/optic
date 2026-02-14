@@ -38,7 +38,6 @@ void naiveBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
               static_cast<uint8_t>(std::clamp(sumB, 0, 255)), 255};
 }
 void satBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
-                const std::mdspan<Pixel, std::dextents<size_t, 2>>& paddedGrid,
                 const std::mdspan<SatPixel, std::dextents<size_t, 2>>& satGrid,
                 size_t inputGridRowNum, size_t inputGridColNum, int kernelSize) {
 
@@ -47,6 +46,12 @@ void satBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     int radius = (kernelSize - 1) / 2;
 
     int borderWidth = radius + 1;
+    int mike = satGrid.extent(0) -inputGrid.extent(0);
+    // if(mike==borderWidth){
+    //     std::cout << "HEY GOOD";
+    //     EXIT_FAILURE;
+    // }
+
     int paddedGridRowNum = inputGridRowNum + borderWidth;
     int paddedGridColNum = inputGridColNum + borderWidth;
 
