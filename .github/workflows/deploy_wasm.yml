@@ -19,10 +19,9 @@ jobs:
           version: 3.1.70
 
       - name: Compile WASM
-        - name: Compile WASM
         run: |
           # -DCMAKE_BUILD_TYPE=Release:
-          #  Handles the -O3 optimization automatically.
+          #  This handles the -O3 optimization automatically.
 
           emcmake cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           

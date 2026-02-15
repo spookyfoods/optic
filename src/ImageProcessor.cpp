@@ -25,7 +25,6 @@ ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
     if(!parallel) {
         std::cout << "linear sat\n";
         for(int j{0}; j < newWidth; j++) {
-            // Assuming your SatPixel can be initialized/assigned to 0
             satGrid[0, j] = {0, 0, 0, 0}; 
         }
         for(int i{1}; i < newHeight; i++) {
