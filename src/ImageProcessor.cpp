@@ -24,25 +24,15 @@ ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
     std::mdspan satGrid(reinterpret_cast<SatPixel*>(satData.get()), newHeight, newWidth);
     if(!parallel) {
         std::cout << "linear sat\n";
-
-        // Write ZERO to the top border and left border
-        for(int i{0}; i < borderWidth; i++) {
-            for(int j{0}; j < newWidth; j++) {
-                // Top Border
-                satGrid[i, j] = 0;
-            }
+        for(int j{0}; j < newWidth; j++) {
+            // Assuming your SatPixel can be initialized/assigned to 0
+            satGrid[0, j] = {0, 0, 0, 0}; 
         }
-        for(int i{borderWidth}; i < newHeight - borderWidth; i++) {
-            for(int j{0}; j < borderWidth; j++) {
-                // Write Left Border
-                satGrid[i, j] = 0;
-
-            }
+        for(int i{1}; i < newHeight; i++) {
+            satGrid[i, 0] = {0, 0, 0, 0};
         }
-        // Create the SAT values of all the middle pixels and the right and bottom border
-        // excluding the very last rows and columns, because they won't be accessed
-        for(int i{borderWidth}; i < newHeight; i++) {
-            for(int k{borderWidth}; k < newWidth; k++) {
+        for(int i{1}; i < newHeight; i++) {
+            for(int k{1}; k < newWidth; k++) {
                 satGrid[i, k] = paddedGrid[i, k] + satGrid[i - 1, k] + satGrid[i, k - 1] -
                                 satGrid[i - 1, k - 1];
             }
@@ -85,34 +75,25 @@ ImageProcessor::createPadding(int newWidth, int newHeight, int borderWidth,
 
     auto paddedData = std::make_unique_for_overwrite<unsigned char[]>(newWidth * newHeight * 4);
     std::mdspan paddedGrid(reinterpret_cast<Pixel*>(paddedData.get()), newHeight, newWidth);
-    // 1. Create top and bottom borders
-    // We iterate through the height of the border (0 to borderWidth)
-    for(int i{0}; i < borderWidth; i++) {
-        for(int j{0}; j < newWidth; j++) {
-            paddedGrid[i, j] = 0;                           // Top Border
-            paddedGrid[newHeight - borderWidth + i, j] = 0; // Bottom Border
-        }
-    }
-
-    // 2. Fill the middle: Left Border + Image Copy + Right Border
-    // We iterate from the first valid image row (borderWidth) to the last
     for(int i{borderWidth}; i < newHeight - borderWidth; i++) {
 
-        // Write Left Border
-        for(int j{0}; j < borderWidth; j++) {
-            paddedGrid[i, j] = 0;
-        }
-        // Copy Original Image
-        // 'k' represents the column in the new Padded Grid
         for(int k{borderWidth}; k < newWidth - borderWidth; k++) {
-            // We map the Padded Grid coordinates back to Input Grid coordinates
-            // by subtracting the borderWidth
             paddedGrid[i, k] = inputGrid[i - borderWidth, k - borderWidth];
         }
-
-        // Write Right Border
+    }
+    
+    for(int i{borderWidth}; i < newHeight - borderWidth; i++) {
         for(int j{0}; j < borderWidth; j++) {
-            paddedGrid[i, newWidth - borderWidth + j] = 0;
+            paddedGrid[i, j] = paddedGrid[i, borderWidth];
+        }
+        for(int j{0}; j < borderWidth; j++) {
+            paddedGrid[i, newWidth - borderWidth + j] = paddedGrid[i, newWidth - borderWidth - 1];
+        }
+    }
+    for(int i{0}; i < borderWidth; i++) {
+        for(int j{0}; j < newWidth; j++) {
+            paddedGrid[i, j] = paddedGrid[borderWidth,j];
+            paddedGrid[newHeight - borderWidth + i, j] = paddedGrid[newHeight - borderWidth-1,j];
         }
     }
 
