@@ -20,7 +20,7 @@ int main(int argc, char* argv[]){
     file.read(buffer.data(),size);
     ImageProcessor processor;
     processor.loadImage(reinterpret_cast<uintptr_t>(buffer.data()), size);
-    processor.applyFilter(777,"sat");
+    processor.applyFilter(9,"sat");
     std::ofstream outputImage(outputPath, std::ios::binary);
     char* data = reinterpret_cast<char*>(processor.getPixelDataPtr());
     int totalPixels = processor.getWidth() * processor.getHeight();

@@ -3,8 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WebPPM Studio - WASM based artifact restoration tool">
     <title>WebPPM Studio | Artifact Restoration</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Drag and drop visual cue */
+        .drag-active {
+            opacity: 0.7;
+            outline: 4px dashed #666;
+            transition: all 0.2s ease;
+        }
+        /* Spinner for processing state */
+        .processing-overlay {
+            cursor: wait;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
 
@@ -23,7 +38,7 @@
             <fieldset>
                 <legend>Excavation Controls</legend>
                 
-                <label for="file-upload">Select Artifact:</label>
+                <label for="file-upload">Select Artifact (or Drag & Drop):</label>
                 <input type="file" id="file-upload" accept="image/*" disabled>
                 
                 <hr>
@@ -43,8 +58,9 @@
                     <input type="range" id="filter-slider" min="1" max="25" step="2" value="1">
                 </div>
 
-                <div style="margin-top: 1rem;">
+                <div style="margin-top: 1rem; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button type="button" id="btn-process" disabled><strong>PROCESS ARTIFACT</strong></button>
+                    <button type="button" id="btn-download-img" disabled><strong>SAVE IMAGE</strong></button>
                     <button type="button" id="btn-download-csv" disabled><strong>RETRIEVE DATA LOG</strong></button>
                 </div>
             </fieldset>
@@ -60,8 +76,8 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td align="center" valign="middle">
-                            <img id="source-image" alt="Waiting for input..." style="max-height: 400px;" />
+                        <td align="center" valign="middle" id="drop-zone">
+                            <img id="source-image" alt="Waiting for input..." style="max-height: 400px; transition: 0.3s;" />
                         </td>
                         
                         <td align="center" valign="middle">
@@ -79,7 +95,7 @@
     </main>
 
     <footer>
-        WebPPM Studio // Experimental WASM Build //
+        WebPPM Studio // Experimental WASM Build // v2.1
     </footer>
 
     <script src="ppm_web.js"></script>
@@ -92,8 +108,11 @@
 
         // UI Elements
         const fileInput = document.getElementById('file-upload');
+        const dropZone = document.getElementById('drop-zone');
         const btnProcess = document.getElementById('btn-process');
         const btnDownloadCsv = document.getElementById('btn-download-csv');
+        const btnDownloadImg = document.getElementById('btn-download-img'); // New
+        
         const statusVal = document.getElementById('status-val');
         const dimsVal = document.getElementById('dims-val');
         const memVal = document.getElementById('mem-val');
@@ -109,129 +128,186 @@
 
         // --- Helper: Logger ---
         function log(message) {
-            consoleLog.value += message + "\n";
-            consoleLog.scrollTop = consoleLog.scrollHeight; // Auto-scroll
+            const timestamp = new Date().toLocaleTimeString();
+            consoleLog.value += `[${timestamp}] ${message}\n`;
+            consoleLog.scrollTop = consoleLog.scrollHeight; 
         }
 
-        // --- Step 1: Initialize Wasm Engine with Config ---
+        // --- Step 1: Initialize Wasm Engine ---
         const moduleConfig = {
             print: (text) => log("[C++ stdout] " + text),
             printErr: (text) => log("[C++ stderr] " + text),
-            onRuntimeInitialized: () => {
-                // Runtime logic handled in .then()
-            }
+            onRuntimeInitialized: () => { /* Handled in Promise */ }
         };
 
-        // Initialize Module
         createModule(moduleConfig).then(instance => {
             wasmModule = instance;
-            
-            // Create the C++ Object
             processor = new wasmModule.ImageProcessor();
             
-            // Unlock UI
             fileInput.disabled = false;
             statusVal.textContent = "Engine Ready";
             log("System: Wasm Module Loaded & Processor Created.");
+            
+            setupDragAndDrop();
         });
 
-        // Update display when slider moves
-        slider.addEventListener('input', (e) => {
-            sliderDisplay.textContent = e.target.value;
-        });
+        slider.addEventListener('input', (e) => sliderDisplay.textContent = e.target.value);
 
-        // --- Step 2: Handle File Upload ---
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
+        // --- Step 2: Handle File Loading (Common Logic) ---
+        async function loadFile(file) {
             if (!file) return;
 
             statusVal.textContent = "Uploading...";
             btnProcess.disabled = true;
             btnDownloadCsv.disabled = true;
+            btnDownloadImg.disabled = true;
 
-            // Preview
             sourceImage.src = URL.createObjectURL(file);
 
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 const jsData = new Uint8Array(arrayBuffer);
 
-                // Allocate Memory
                 const ptr = wasmModule._malloc(jsData.length);
                 wasmModule.HEAPU8.set(jsData, ptr);
 
-                // Call C++
-                log(`System: Loading ${file.name} (${jsData.length} bytes)...`);
-                const success = processor.loadImage(ptr, jsData.length);
-                wasmModule._free(ptr);
+                log(`System: Loading ${file.name} (${(jsData.length / 1024).toFixed(1)} KB)...`);
+                
+                // Use setTimeout to allow UI to render the "Uploading" text before heavy blocking WASM
+                setTimeout(() => {
+                    const success = processor.loadImage(ptr, jsData.length);
+                    wasmModule._free(ptr);
 
-                if (success) {
-                    statusVal.textContent = "Image Loaded";
-                    btnProcess.disabled = false;
-                    
-                    const w = processor.getWidth();
-                    const h = processor.getHeight();
-                    dimsVal.textContent = `${w} x ${h}`;
-                    
-                    // Render initial state
-                    renderCanvas();
-                } else {
-                    statusVal.textContent = "Load Failed";
-                    log("System: Error loading image in C++.");
-                }
+                    if (success) {
+                        statusVal.textContent = "Image Loaded";
+                        btnProcess.disabled = false;
+                        
+                        const w = processor.getWidth();
+                        const h = processor.getHeight();
+                        dimsVal.textContent = `${w} x ${h}`;
+                        
+                        renderCanvas(); // Render raw state
+                    } else {
+                        statusVal.textContent = "Load Failed";
+                        log("System: Error loading image in C++.");
+                    }
+                }, 50);
+
             } catch (err) {
                 log("System Error: " + err.message);
+                statusVal.textContent = "Error";
             }
-        });
+        }
+
+        // --- Step 2a: Event Listeners for Input ---
+        fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]));
+
+        // --- Modern Feature: Drag and Drop ---
+        function setupDragAndDrop() {
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Highlight drop zone
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => sourceImage.classList.add('drag-active'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => sourceImage.classList.remove('drag-active'), false);
+            });
+
+            // Handle Drop
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if(files.length > 0 && files[0].type.startsWith('image/')) {
+                    loadFile(files[0]);
+                } else {
+                    log("System: Invalid file type dropped.");
+                }
+            }, false);
+        }
 
         // --- Step 3: Process Image ---
         btnProcess.addEventListener('click', () => {
             if (!processor) return;
 
+            document.body.classList.add('processing-overlay'); // Visual cue
             statusVal.textContent = "Processing...";
-            const filterValue = parseInt(slider.value, 10);
-            const selectedMethod = filterTypeSelect.value; // 'sat' or 'naive'
             
-            const start = performance.now();
-            
-            // Call C++ Filter with string argument
-            // Note: C++ signature is applyFilter(int, std::string)
-            processor.applyFilter(filterValue, selectedMethod);
-            
-            const end = performance.now();
-            lastExecutionTime = (end - start).toFixed(2);
-            
-            renderCanvas();
-            
-            statusVal.textContent = `Done (${lastExecutionTime}ms)`;
-            log(`System: Applied '${selectedMethod}' filter (Size: ${filterValue}) in ${lastExecutionTime}ms.`);
-            
-            // Enable CSV download
-            btnDownloadCsv.disabled = false;
+            // Allow UI paint before blocking operation
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    const filterValue = parseInt(slider.value, 10);
+                    const selectedMethod = filterTypeSelect.value;
+                    
+                    const start = performance.now();
+                    processor.applyFilter(filterValue, selectedMethod);
+                    const end = performance.now();
+                    
+                    lastExecutionTime = (end - start).toFixed(2);
+                    
+                    renderCanvas();
+                    
+                    statusVal.textContent = `Done (${lastExecutionTime}ms)`;
+                    log(`System: Applied '${selectedMethod}' filter (Size: ${filterValue}) in ${lastExecutionTime}ms.`);
+                    
+                    btnDownloadCsv.disabled = false;
+                    btnDownloadImg.disabled = false;
+                    document.body.classList.remove('processing-overlay');
+                }, 10);
+            });
         });
 
-        // --- Step 4: Download CSV (Virtual FS) ---
+        // --- Step 4: Download CSV (Robust) ---
         btnDownloadCsv.addEventListener('click', () => {
-            try {
-                const filename = "sat_output.csv";
-                const content = wasmModule.FS.readFile(filename);
-                
-                const blob = new Blob([content], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = "analysis_data.csv";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                log("System: CSV data retrieved from virtual filesystem.");
-            } catch (e) {
-                log("System Error: Could not retrieve CSV. " + e.message);
+            const filename = "sat_output.csv";
+            
+            // Modern Check: Ensure file exists in virtual FS
+            if (wasmModule.FS.analyzePath(filename).exists) {
+                try {
+                    const content = wasmModule.FS.readFile(filename);
+                    const blob = new Blob([content], { type: 'text/csv' });
+                    triggerDownload(blob, "analysis_data.csv");
+                    log("System: CSV data retrieved successfully.");
+                } catch (e) {
+                    log("System Error: Read permission failed. " + e.message);
+                }
+            } else {
+                log("System Error: No CSV log generated yet. Run process first.");
             }
         });
+
+        // --- Step 5: Download Image (New Feature) ---
+        btnDownloadImg.addEventListener('click', () => {
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    triggerDownload(blob, "restored_artifact.png");
+                    log("System: Image saved to disk.");
+                } else {
+                    log("System Error: Canvas is empty.");
+                }
+            }, 'image/png');
+        });
+
+        // --- Helper: Download Trigger ---
+        function triggerDownload(blob, fileName) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
 
         // --- Helper: Render ---
         function renderCanvas() {
@@ -241,8 +317,8 @@
             canvas.width = width;
             canvas.height = height;
 
-            // Access Wasm Memory directly
             const pixelPtr = processor.getPixelDataPtr();
+            // Use subarray for a view, usually faster than copying if supported by usage
             const wasmPixels = new Uint8ClampedArray(
                 wasmModule.HEAPU8.buffer, 
                 pixelPtr, 
@@ -252,7 +328,6 @@
             const imageData = new ImageData(wasmPixels, width, height);
             ctx.putImageData(imageData, 0, 0);
 
-            // Update Memory Metric
             if (wasmModule.HEAPU8.buffer.byteLength) {
                 const mb = (wasmModule.HEAPU8.buffer.byteLength / (1024 * 1024)).toFixed(1);
                 memVal.textContent = `${mb} MB`;

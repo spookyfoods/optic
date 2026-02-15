@@ -19,24 +19,37 @@ ImageProcessor::~ImageProcessor() { delete[] pixelData; }
 
 ImageProcessor::satDataAndGrid
 ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
-                           std::mdspan<Pixel, std::dextents<size_t, 2>> paddedGrid,
-                           bool parallel) {
+                           std::mdspan<Pixel, std::dextents<size_t, 2>> paddedGrid, bool parallel) {
     auto satData = std::make_unique_for_overwrite<uint32_t[]>(4 * newHeight * newWidth);
     std::mdspan satGrid(reinterpret_cast<SatPixel*>(satData.get()), newHeight, newWidth);
-    if(!parallel){
+    if(!parallel) {
         std::cout << "linear sat\n";
+
+        // Write ZERO to the top border and left border
+        for(int i{0}; i < borderWidth; i++) {
+            for(int j{0}; j < newWidth; j++) {
+                // Top Border
+                satGrid[i, j] = 0;
+            }
+        }
+        for(int i{borderWidth}; i < newHeight - borderWidth; i++) {
+            for(int j{0}; j < borderWidth; j++) {
+                // Write Left Border
+                satGrid[i, j] = 0;
+
+            }
+        }
+        // Create the SAT values of all the middle pixels and the right and bottom border
+        // excluding the very last rows and columns, because they won't be accessed
         for(int i{borderWidth}; i < newHeight; i++) {
-            // Create the SAT values of all the middle pixels and the right and bottom border
-            // excluding the very last rows and columns, because they won't be accessed
             for(int k{borderWidth}; k < newWidth; k++) {
-                satGrid[i, k] =
-                    paddedGrid[i, k] + satGrid[i - 1, k] + satGrid[i, k - 1] - satGrid[i - 1, k - 1];
+                satGrid[i, k] = paddedGrid[i, k] + satGrid[i - 1, k] + satGrid[i, k - 1] -
+                                satGrid[i - 1, k - 1];
             }
         }
     } else {
         std::cout << "parallel sat\n";
-
-}
+    }
 
     return std::make_pair(std::move(satData), satGrid);
 }
@@ -134,7 +147,7 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
     };
 
     if(create_sat) {
-        auto [satData, satGrid] = computeSAT(newWidth, newHeight, borderWidth, paddedGrid,false);
+        auto [satData, satGrid] = computeSAT(newWidth, newHeight, borderWidth, paddedGrid, false);
         std::cout << "\nRUNNING SAT BOX BLUR" << std::endl;
         traverse([&](int i, int j) { satBoxBlur(inputGrid, satGrid, i, j); });
     } else {
