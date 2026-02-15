@@ -19,19 +19,13 @@ jobs:
           version: 3.1.70
 
       - name: Compile WASM
+        - name: Compile WASM
         run: |
-          # -DCMAKE_BUILD_TYPE=Release: 
-          #    Turns on optimizations (-O3). Without this, WASM is incredibly slow.
-          
-          # -DCMAKE_CXX_FLAGS & LINKER_FLAGS:
-          #    "-s SIMD=0": Forcefully disables SIMD instructions.
-          #    "-s USE_PTHREADS=0": Forcefully disables multithreading.
-          
-          emcmake cmake -B build -S . \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_FLAGS="-s SIMD=0 -s USE_PTHREADS=0" \
-            -DCMAKE_EXE_LINKER_FLAGS="-s SIMD=0 -s USE_PTHREADS=0"
+          # -DCMAKE_BUILD_TYPE=Release:
+          #  Handles the -O3 optimization automatically.
 
+          emcmake cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          
           cmake --build build
 
       - name: Checkout Website Repo
