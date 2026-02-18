@@ -23,7 +23,7 @@ if(EMSCRIPTEN)
     target_link_options(ppm_web PRIVATE
         "--bind"
         "-pthread"
-        "-sPROXY_TO_PTHREAD=1"
+        # "-sPROXY_TO_PTHREAD=1"
         "-sPTHREAD_POOL_SIZE=4"
         "-sALLOW_MEMORY_GROWTH=1"
         "-sMODULARIZE=1"
@@ -51,6 +51,6 @@ else()
         # Linux / macOS (GCC or Clang)
         # -O3 = Aggressive optimization (loop unrolling, inlining)
         # -march=native = Auto-detects your CPU's best SIMD features (AVX, NEON, etc.)
-        target_compile_options(ppm_cli PRIVATE -O3 -march=native -Rpass=loop-vectorize)
+        target_compile_options(ppm_cli PRIVATE)
     endif()
 endif()
