@@ -180,6 +180,9 @@
                     statusVal.textContent = "Error";
                     document.body.classList.remove('processing-overlay');
                     break;
+                case 'LOG':
+                    log(message);
+                    break;
             }
         };
 

@@ -1,11 +1,22 @@
 // Import the Emscripten glue code
 importScripts('ppm_web.js');
 
+const moduleConfig = {
+    // Redirect C++ stdout to the main thread
+    print: (text) => {
+        postMessage({ type: 'LOG', message: "[C++] " + text });
+    },
+    // Redirect C++ stderr to the main thread
+    printErr: (text) => {
+        postMessage({ type: 'ERROR', message: "[C++ Error] " + text });
+    }
+};
+
 let wasmModule = null;
 let processor = null;
 
 // Initialize WASM
-createModule().then(instance => {
+createModule(moduleConfig).then(instance => {
     wasmModule = instance;
     processor = new wasmModule.ImageProcessor();
     // Notify main thread we are ready
