@@ -6,6 +6,7 @@
 #include <iostream>
 #include <mdspan>
 #include <vector>
+#include <algorithm>
 
 void sharpenFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
                    const std::mdspan<Pixel, std::dextents<size_t, 2>>& paddedGrid,
@@ -18,26 +19,26 @@ void sharpenFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     };
 
     int borderWidth = (paddedGrid.extent(0) - inputGrid.extent(0)) / 2;
-    int paddedGridRowNum = inputGridRowNum + borderWidth;
-    int paddedGridColNum = inputGridColNum + borderWidth;
-
     int sumR = 0;
     int sumG = 0;
     int sumB = 0;
 
-    // Iterate over the 3x3 kernel area
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            const Pixel& p = paddedGrid[paddedGridRowNum + i, paddedGridColNum + j];
-            int weight = kernel[i + 1][j + 1];
+    int paddedGridRowNum = inputGridRowNum + borderWidth;
+    int paddedGridColNum = inputGridColNum + borderWidth;
 
-            sumR += p.r * weight;
-            sumG += p.g * weight;
-            sumB += p.b * weight;
+    for(int i{paddedGridRowNum - borderWidth}; i <= paddedGridRowNum + borderWidth; i++) {
+        for(int j{paddedGridColNum - borderWidth}; j <= paddedGridColNum + borderWidth; j++) {
+            // Map absolute grid coordinates to kernel relative coordinates (0..2)
+            int kRow = i - (paddedGridRowNum - borderWidth);
+            int kCol = j - (paddedGridColNum - borderWidth);
+            int weight = kernel[kRow][kCol];
+
+            sumR += paddedGrid[i, j].r * weight;
+            sumG += paddedGrid[i, j].g * weight;
+            sumB += paddedGrid[i, j].b * weight;
         }
     }
 
-    // Clamp results to 0-255 range (Sharpening can produce negative values or >255)
     inputGrid[inputGridRowNum, inputGridColNum] = Pixel{
         static_cast<uint8_t>(std::clamp(sumR, 0, 255)),
         static_cast<uint8_t>(std::clamp(sumG, 0, 255)),
@@ -57,21 +58,22 @@ void edgeDetectionFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid
     };
 
     int borderWidth = (paddedGrid.extent(0) - inputGrid.extent(0)) / 2;
-    int paddedGridRowNum = inputGridRowNum + borderWidth;
-    int paddedGridColNum = inputGridColNum + borderWidth;
-
     int sumR = 0;
     int sumG = 0;
     int sumB = 0;
 
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            const Pixel& p = paddedGrid[paddedGridRowNum + i, paddedGridColNum + j];
-            int weight = kernel[i + 1][j + 1];
+    int paddedGridRowNum = inputGridRowNum + borderWidth;
+    int paddedGridColNum = inputGridColNum + borderWidth;
 
-            sumR += p.r * weight;
-            sumG += p.g * weight;
-            sumB += p.b * weight;
+    for(int i{paddedGridRowNum - borderWidth}; i <= paddedGridRowNum + borderWidth; i++) {
+        for(int j{paddedGridColNum - borderWidth}; j <= paddedGridColNum + borderWidth; j++) {
+            int kRow = i - (paddedGridRowNum - borderWidth);
+            int kCol = j - (paddedGridColNum - borderWidth);
+            int weight = kernel[kRow][kCol];
+
+            sumR += paddedGrid[i, j].r * weight;
+            sumG += paddedGrid[i, j].g * weight;
+            sumB += paddedGrid[i, j].b * weight;
         }
     }
 
@@ -93,33 +95,37 @@ void gaussianBlurFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
         {1, 2, 1}
     };
     
-    // The sum of weights is 16, so we divide by 16 at the end
     const int weightSum = 16; 
 
     int borderWidth = (paddedGrid.extent(0) - inputGrid.extent(0)) / 2;
-    int paddedGridRowNum = inputGridRowNum + borderWidth;
-    int paddedGridColNum = inputGridColNum + borderWidth;
-
     int sumR = 0;
     int sumG = 0;
     int sumB = 0;
 
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            const Pixel& p = paddedGrid[paddedGridRowNum + i, paddedGridColNum + j];
-            int weight = kernel[i + 1][j + 1];
+    int paddedGridRowNum = inputGridRowNum + borderWidth;
+    int paddedGridColNum = inputGridColNum + borderWidth;
 
-            sumR += p.r * weight;
-            sumG += p.g * weight;
-            sumB += p.b * weight;
+    for(int i{paddedGridRowNum - borderWidth}; i <= paddedGridRowNum + borderWidth; i++) {
+        for(int j{paddedGridColNum - borderWidth}; j <= paddedGridColNum + borderWidth; j++) {
+            int kRow = i - (paddedGridRowNum - borderWidth);
+            int kCol = j - (paddedGridColNum - borderWidth);
+            int weight = kernel[kRow][kCol];
+
+            sumR += paddedGrid[i, j].r * weight;
+            sumG += paddedGrid[i, j].g * weight;
+            sumB += paddedGrid[i, j].b * weight;
         }
     }
 
-    // Normalize by dividing by the sum of weights
+    // Apply normalization before clamping, similar to how naiveBoxBlur averages
+    sumR /= weightSum;
+    sumG /= weightSum;
+    sumB /= weightSum;
+
     inputGrid[inputGridRowNum, inputGridColNum] = Pixel{
-        static_cast<uint8_t>(std::clamp(sumR / weightSum, 0, 255)),
-        static_cast<uint8_t>(std::clamp(sumG / weightSum, 0, 255)),
-        static_cast<uint8_t>(std::clamp(sumB / weightSum, 0, 255)),
+        static_cast<uint8_t>(std::clamp(sumR, 0, 255)),
+        static_cast<uint8_t>(std::clamp(sumG, 0, 255)),
+        static_cast<uint8_t>(std::clamp(sumB, 0, 255)),
         255
     };
 }
@@ -135,27 +141,25 @@ void embossFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     };
 
     int borderWidth = (paddedGrid.extent(0) - inputGrid.extent(0)) / 2;
-    int paddedGridRowNum = inputGridRowNum + borderWidth;
-    int paddedGridColNum = inputGridColNum + borderWidth;
-
     int sumR = 0;
     int sumG = 0;
     int sumB = 0;
 
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            const Pixel& p = paddedGrid[paddedGridRowNum + i, paddedGridColNum + j];
-            int weight = kernel[i + 1][j + 1];
+    int paddedGridRowNum = inputGridRowNum + borderWidth;
+    int paddedGridColNum = inputGridColNum + borderWidth;
 
-            sumR += p.r * weight;
-            sumG += p.g * weight;
-            sumB += p.b * weight;
+    for(int i{paddedGridRowNum - borderWidth}; i <= paddedGridRowNum + borderWidth; i++) {
+        for(int j{paddedGridColNum - borderWidth}; j <= paddedGridColNum + borderWidth; j++) {
+            int kRow = i - (paddedGridRowNum - borderWidth);
+            int kCol = j - (paddedGridColNum - borderWidth);
+            int weight = kernel[kRow][kCol];
+
+            sumR += paddedGrid[i, j].r * weight;
+            sumG += paddedGrid[i, j].g * weight;
+            sumB += paddedGrid[i, j].b * weight;
         }
     }
 
-    // Emboss often results in low values; clamping handles the negatives.
-    // Sometimes an offset (e.g., +128) is added to make the base grey, 
-    // but here we stick to the standard kernel result clamped.
     inputGrid[inputGridRowNum, inputGridColNum] = Pixel{
         static_cast<uint8_t>(std::clamp(sumR, 0, 255)),
         static_cast<uint8_t>(std::clamp(sumG, 0, 255)),
@@ -164,13 +168,10 @@ void embossFilter(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     };
 }
 
-
 void naiveBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
                   const std::mdspan<Pixel, std::dextents<size_t, 2>>& paddedGrid,
                   size_t inputGridRowNum, size_t inputGridColNum) {
     int borderWidth = (paddedGrid.extent(0) - inputGrid.extent(0)) / 2;
-
-
     int sumR = 0;
     int sumG = 0;
     int sumB = 0;
@@ -195,6 +196,7 @@ void naiveBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
               static_cast<uint8_t>(std::clamp(sumG, 0, 255)),
               static_cast<uint8_t>(std::clamp(sumB, 0, 255)), 255};
 }
+
 void satBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
                 const std::mdspan<SatPixel, std::dextents<size_t, 2>>& satGrid,
                 size_t inputGridRowNum, size_t inputGridColNum) {
@@ -219,11 +221,9 @@ void satBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     const SatPixel& p3 = satGrid[r1 - 1, c2];
     const SatPixel& p4 = satGrid[r1 - 1, c1 - 1];
 
-
     uint32_t sumR = p1.r - p2.r - p3.r + p4.r;
     uint32_t sumG = p1.g - p2.g - p3.g + p4.g;
     uint32_t sumB = p1.b - p2.b - p3.b + p4.b;
-
 
     inputGrid[inputGridRowNum, inputGridColNum] = {
         static_cast<uint8_t>(sumR / area), static_cast<uint8_t>(sumG / area),
