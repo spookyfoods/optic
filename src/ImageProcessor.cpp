@@ -276,21 +276,6 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
     } else if(filterType=="naive") {
         std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
         traverse([&](int i, int j) { naiveBoxBlur(inputGrid, paddedGrid, i, j); });
-    }else if(filterType=="sharpen"){
-        std::cout << "\nRUNNING Kernel Sharpen" << std::endl;
-        traverse([&](int i, int j) { sharpenFilter(inputGrid, paddedGrid, i, j); });
-    }else if(filterType=="edge"){
-        std::cout << "\nRUNNING Kernel Edge" << std::endl;
-        traverse([&](int i, int j) { edgeDetectionFilter(inputGrid, paddedGrid, i, j); });
-
-    }else if(filterType=="gaussian"){
-        std::cout << "\nRUNNING Kernel Gaussian" << std::endl;
-        traverse([&](int i, int j) { gaussianBlurFilter(inputGrid, paddedGrid, i, j); });
-
-    }else if(filterType=="emboss"){
-        std::cout << "\nRUNNING Kernel Emboss" << std::endl;
-        traverse([&](int i, int j) { embossFilter(inputGrid, paddedGrid, i, j); });
-
     }
     std::cout << "\nInput Pix[0,0]:\t" << (int)inputGrid[0, 0].r << " " << (int)inputGrid[0, 0].g
               << " " << (int)inputGrid[0, 0].b << "\n";

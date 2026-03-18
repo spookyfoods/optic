@@ -35,6 +35,6 @@ if(EMSCRIPTEN)
 
 else()
     message("Building for native")
-    add_executable(ppm_cli src/ImageProcessor.cpp src/main.cpp)
+    add_executable(ppm_cli src/ImageProcessor.cpp src/main.cpp src/Filters.cpp)
 endif()
 

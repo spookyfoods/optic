@@ -4,11 +4,22 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
-#include <type_traits> // Required for std::common_type_t
+#include <type_traits>
+#include <ostream>
 
 template <typename T>
 struct GenericPixel {
     T r, g, b, a;
+    
+    GenericPixel() : r(0), g(0), b(0), a(1){}
+    GenericPixel(T _r, T _g, T _b, T _a) : r(_r), g(_g), b(_b), a(_a){}
+    GenericPixel(T _r, T _g, T _b) : r(_r), g(_g), b(_b), a(1){}
+
+    friend std::ostream& operator<<(std::ostream& out, const GenericPixel<T>& pixel) {
+        out << "[" << +pixel.r << ", " << +pixel.g 
+            << ", " << +pixel.b << ", " << +pixel.a << "]";
+        return out;
+    }
 
     // --- Helper (Now Public) ---
     // Made public static so global friend operators can use it safely.
@@ -26,7 +37,6 @@ struct GenericPixel {
         r = clamp_cast(static_cast<int64_t>(r) + other.r);
         g = clamp_cast(static_cast<int64_t>(g) + other.g);
         b = clamp_cast(static_cast<int64_t>(b) + other.b);
-        // Note: Alpha is usually ignored in arithmetic +=
         return *this;
     }
 
@@ -65,7 +75,7 @@ struct GenericPixel {
         r = clamp_cast(static_cast<int64_t>(other.r));
         g = clamp_cast(static_cast<int64_t>(other.g));
         b = clamp_cast(static_cast<int64_t>(other.b));
-        a = clamp_cast(static_cast<int64_t>(other.a)); 
+        a = clamp_cast(static_cast<int64_t>(other.a));
         return *this;
     }
 };
