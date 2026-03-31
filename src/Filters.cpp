@@ -2,12 +2,6 @@
 #include <algorithm>
 #include <iostream>
 
-void e_naiveBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
-                    const std::mdspan<Pixel, std::dextents<size_t, 2>>& paddedGrid,
-                    size_t inputGridRowNum, size_t inputGridColNum, Kernel<int> k) {
-
-    
-}
 
 void naiveBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
                   const std::mdspan<Pixel, std::dextents<size_t, 2>>& paddedGrid,
@@ -69,8 +63,4 @@ void satBoxBlur(std::mdspan<Pixel, std::dextents<size_t, 2>>& inputGrid,
     inputGrid[inputGridRowNum, inputGridColNum] = {static_cast<uint8_t>(sumR / area),
                                                    static_cast<uint8_t>(sumG / area),
                                                    static_cast<uint8_t>(sumB / area), 255};
-}
-
-void trollGe(){
-    std::cout << "um";
 }

@@ -8,6 +8,7 @@
 #include <memory>
 #include <span>
 #include <thread>
+#include "Kernel.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -276,6 +277,10 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
     } else if(filterType=="naive") {
         std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
         traverse([&](int i, int j) { naiveBoxBlur(inputGrid, paddedGrid, i, j); });
+    } else if(filterType=="factorybb"){
+        std::cout << "\nRUNNNIG FACTORY BOX BLUR" << std::endl;
+        auto kernel = KernelFactory::createBoxBlur(kernelSize);
+        traverse([&](int i, int j){e_naiveBoxBlur(inputGrid, paddedGrid, i, j, kernel);});
     }
     std::cout << "\nInput Pix[0,0]:\t" << (int)inputGrid[0, 0].r << " " << (int)inputGrid[0, 0].g
               << " " << (int)inputGrid[0, 0].b << "\n";
