@@ -104,7 +104,7 @@ struct TwoPassContext {
         // Split height into two halves
         int midH = h / 2;
         std::thread t3(&TwoPassContext::acrossRow, this, 0, midH);
-        std::thread t4(&TwoPassContext::acrossRow, this, midH+1, h);
+        std::thread t4(&TwoPassContext::acrossRow, this, midH, h);
 
         // Row-wise Work Barrier
         t3.join();
@@ -140,7 +140,9 @@ ImageProcessor::ImageProcessor() : width(0), height(0), channels(0), pixelData(n
     std::cout << "[C++] ImageProcessor Initialized" << std::endl;
 }
 
-ImageProcessor::~ImageProcessor() { delete[] pixelData; }
+ImageProcessor::~ImageProcessor() {
+    // stbi_image_free(pixelDataU.get()); 
+    }
 
 ImageProcessor::satDataAndGrid
 ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
@@ -187,29 +189,28 @@ ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
     return std::make_pair(std::move(satData), satGrid);
 }
 
-bool ImageProcessor::loadImage(uintptr_t bufferPtr, int size) {
+bool ImageProcessor::loadImage(std::vector<char> buffer, int size) {
+    std::vector<char> m_buffer=std::move(buffer);
 
-    const unsigned char* rawData = reinterpret_cast<const unsigned char*>(bufferPtr);
-    int tempW, tempH, tempC;
-    unsigned char* tempStbData = stbi_load_from_memory(rawData, size, &tempW, &tempH, &tempC, 4);
-    if(!tempStbData) {
+    const unsigned char* m_buffer_ptr = reinterpret_cast<const unsigned char*>(m_buffer.data());
+
+    int tempC;
+
+    pixelDataU.reset(stbi_load_from_memory(m_buffer_ptr, size, &width, &height, &tempC, 4));
+
+    if(!pixelDataU) {
         std::cerr << "[C++] Failed to load image." << '\n';
         return false;
     }
-    if(pixelData) {
-        delete[] pixelData;
-    }
-    width = tempW;
-    height = tempH;
     channels = 4;
 
-    pixelData = new unsigned char[width * height * 4];
-
-    std::memcpy(pixelData, tempStbData, width * height * 4);
-
-    stbi_image_free(tempStbData);
+    pixelData = pixelDataU.get();
 
     std::cout << "[C++] Loaded Image: " << width << "x" << height << " (RGBA)" << '\n';
+
+    m_buffer.clear();
+    m_buffer.shrink_to_fit();
+
     return true;
 }
 ImageProcessor::paddedDataAndGrid
@@ -271,14 +272,14 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
 
     if(filterType=="sat") {
         auto [satData, satGrid] = computeSAT(newWidth, newHeight, borderWidth, paddedGrid,
-                                             ImageProcessor::SatMethod::SERIAL);
+                                             ImageProcessor::SatMethod::TWO_PASS_BARRIER);
         std::cout << "\nRUNNING SAT BOX BLUR" << std::endl;
         traverse([&](int i, int j) { satBoxBlur(inputGrid, satGrid, i, j); });
     } else if(filterType=="naive") {
         std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
         traverse([&](int i, int j) { naiveBoxBlur(inputGrid, paddedGrid, i, j); });
-    } else if(filterType=="factorybb"){
-        std::cout << "\nRUNNNIG FACTORY BOX BLUR" << std::endl;
+    } else if(filterType=="naive_factory"){
+        std::cout << "\nRUNNNING FACTORY BOX BLUR" << std::endl;
         auto kernel = KernelFactory::createBoxBlur(kernelSize);
         traverse([&](int i, int j){e_naiveBoxBlur(inputGrid, paddedGrid, i, j, kernel);});
     }

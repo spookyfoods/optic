@@ -21,7 +21,7 @@ int main(int argc, char* argv[]){
     ImageProcessor processor;
     std::cout << static_cast<int>(atoi(argv[4]))  << argv[3];
 
-    processor.loadImage(reinterpret_cast<uintptr_t>(buffer.data()), size);
+    processor.loadImage(buffer, size);
     processor.applyFilter(static_cast<int>(atoi(argv[4])),argv[3]);
     std::ofstream outputImage(outputPath, std::ios::binary);
     char* data = reinterpret_cast<char*>(processor.getPixelDataPtr());

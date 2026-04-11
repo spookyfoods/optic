@@ -11,10 +11,12 @@ class ImageProcessor {
     int width;
     int height;
     int channels;
+    std::unique_ptr<uint8_t> pixelDataU{};
     unsigned char* pixelData;
     uint32_t* satPixelData;
 
     enum class SatMethod { SERIAL, WAVEFRONT_PIPELINE, TWO_PASS_BARRIER };
+    
     using paddedDataAndGrid =
         std::pair<std::unique_ptr<unsigned char[]>, std::mdspan<Pixel, std::dextents<size_t, 2>>>;
     paddedDataAndGrid createPadding(int newWidth, int newHeight, int borderWidth,
@@ -29,7 +31,7 @@ class ImageProcessor {
     ImageProcessor();
     ~ImageProcessor();
 
-    bool loadImage(uintptr_t bufferPtr, int size);
+    bool loadImage(std::vector<char> buffer, int size);
 
     void applyFilter(int kernelSize, std::string filterType);
 
