@@ -38,3 +38,16 @@ else()
     add_executable(ppm_cli src/ImageProcessor.cpp src/main.cpp src/Filters.cpp)
 endif()
 
+
+# ==========================================
+# EXPERIMENTAL SPIKE TARGETS
+# ==========================================
+
+find_package(TIFF REQUIRED)
+
+add_executable(cog_spike src/spike/cog_spike.cpp)
+target_link_libraries(cog_spike PRIVATE TIFF::TIFF)
+
+add_executable(engine_test src/spike/engine_test.cpp)
+add_executable(blur_engine src/spike/blur_engine.cpp)
+add_executable(check_blur src/spike/check_blur.cpp)

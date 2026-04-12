@@ -278,10 +278,10 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
     } else if(filterType=="naive") {
         std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
         traverse([&](int i, int j) { naiveBoxBlur(inputGrid, paddedGrid, i, j); });
-    } else if(filterType=="naive_factory"){
-        std::cout << "\nRUNNNING FACTORY BOX BLUR" << std::endl;
-        auto kernel = KernelFactory::createBoxBlur(kernelSize);
-        traverse([&](int i, int j){e_naiveBoxBlur(inputGrid, paddedGrid, i, j, kernel);});
+    } else if(filterType=="factory"){
+        std::cout << "\nRunning With Generic Kernel Factory Interface" << std::endl;
+        auto kernel = KernelFactory::GaussianBlur(kernelSize);
+        traverse([&](int i, int j){applyKernel(inputGrid, paddedGrid, i, j, kernel);});
     }
     std::cout << "\nInput Pix[0,0]:\t" << (int)inputGrid[0, 0].r << " " << (int)inputGrid[0, 0].g
               << " " << (int)inputGrid[0, 0].b << "\n";

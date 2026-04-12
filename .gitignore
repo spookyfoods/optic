@@ -4,3 +4,4 @@ web/ppm_web.js
 web/ppm_web.wasm
 temp/
 scripts/
+src/spike/
