@@ -1,5 +1,6 @@
 #include "ImageProcessor.h"
 #include "Filters.h"
+#include "Kernel.h"
 #include "Pixel.h"
 #include <condition_variable>
 #include <cstdint>
@@ -8,7 +9,6 @@
 #include <memory>
 #include <span>
 #include <thread>
-#include "Kernel.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -141,8 +141,8 @@ ImageProcessor::ImageProcessor() : width(0), height(0), channels(0), pixelData(n
 }
 
 ImageProcessor::~ImageProcessor() {
-    // stbi_image_free(pixelDataU.get()); 
-    }
+    // stbi_image_free(pixelDataU.get());
+}
 
 ImageProcessor::satDataAndGrid
 ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
@@ -190,7 +190,7 @@ ImageProcessor::computeSAT(int newWidth, int newHeight, int borderWidth,
 }
 
 bool ImageProcessor::loadImage(std::vector<char> buffer, int size) {
-    std::vector<char> m_buffer=std::move(buffer);
+    std::vector<char> m_buffer = std::move(buffer);
 
     const unsigned char* m_buffer_ptr = reinterpret_cast<const unsigned char*>(m_buffer.data());
 
@@ -270,21 +270,22 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
         }
     };
 
-    if(filterType=="sat") {
+    if(filterType == "sat") {
         auto [satData, satGrid] = computeSAT(newWidth, newHeight, borderWidth, paddedGrid,
                                              ImageProcessor::SatMethod::TWO_PASS_BARRIER);
         std::cout << "\nRUNNING SAT BOX BLUR" << std::endl;
         traverse([&](int i, int j) { satBoxBlur(inputGrid, satGrid, i, j); });
-    } else if(filterType=="naive") {
+    } else if(filterType == "naive") {
         std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
         traverse([&](int i, int j) { naiveBoxBlur(inputGrid, paddedGrid, i, j); });
-    } else if(filterType=="factory"){
+    } else if(filterType == "factory") {
         std::cout << "\nRunning With Generic Kernel Factory Interface" << std::endl;
-        auto kernel = KernelFactory::GaussianBlur(kernelSize);
-        traverse([&](int i, int j){applyKernel(inputGrid, paddedGrid, i, j, kernel);});
+        auto kernel = KernelFactory::BoxBlur(kernelSize);
+        traverse([&](int i, int j) { applyKernel(inputGrid, paddedGrid, i, j, kernel); });
     }
-    std::cout << "\nInput Pix[0,0]:\t" << (int)inputGrid[0, 0].r << " " << (int)inputGrid[0, 0].g
-              << " " << (int)inputGrid[0, 0].b << "\n";
+    std::cout << "\nInput Pix[0,0]:\t" << (int)inputGrid[height / 2, width / 2].r << " "
+              << (int)inputGrid[height / 2, width / 2].g << " "
+              << (int)inputGrid[height / 2, width / 2].b << "\n";
 }
 
 int ImageProcessor::getWidth() const { return width; }

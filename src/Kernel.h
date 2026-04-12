@@ -8,7 +8,7 @@ template <typename T> struct Kernel {
     int height;
     std::vector<T> matrix;
 
-    float normalizationFactor;
+    float normalizationFactor{1.0f};
 
     int basePadding = 0;
     int extraBoundaryPadding = 0;
@@ -51,7 +51,6 @@ class KernelFactory {
         Kernel<float> k;
         k.width = size;
         k.height = size;
-        k.normalizationFactor=1.0f;
         k.matrix.resize(size * size);
 
         int radius = size / 2;
@@ -88,8 +87,6 @@ class KernelFactory {
 
         k.matrix.reserve(9);
 
-        k.normalizationFactor = 1.0f;
-
         k.matrix = {-1, 0, 1, -2, 0, 2, -1, 0, 1}; // SOBEL X only
 
         return k;
@@ -101,8 +98,6 @@ class KernelFactory {
         k.basePadding = 1;
 
         k.matrix.reserve(9);
-
-        k.normalizationFactor = 1.0f;
 
         k.matrix = {-1, -2, -1, 0, 0, 0, 1, 2, 1}; // SOBEL Y only
 
