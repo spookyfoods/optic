@@ -275,14 +275,25 @@ void ImageProcessor::applyFilter(int kernelSize, std::string filterType) {
                                              ImageProcessor::SatMethod::TWO_PASS_BARRIER);
         std::cout << "\nRUNNING SAT BOX BLUR" << std::endl;
         traverse([&](int i, int j) { satBoxBlur(inputGrid, satGrid, i, j); });
-    } else if(filterType == "naive") {
-        std::cout << "\nRUNNING NAIVE BOX BLUR" << std::endl;
-        traverse([&](int i, int j) { naiveBoxBlur(inputGrid, paddedGrid, i, j); });
-    } else if(filterType == "factory") {
-        std::cout << "\nRunning With Generic Kernel Factory Interface" << std::endl;
+    } else if(filterType == "boxblur") {
+        std::cout << "\nRunning With Generic Kernel Factory Interface, Applying Box Blur" << std::endl;
         auto kernel = KernelFactory::BoxBlur(kernelSize);
         traverse([&](int i, int j) { applyKernel(inputGrid, paddedGrid, i, j, kernel); });
+    } else if(filterType == "sobelx") {
+        std::cout << "\nRunning With Generic Kernel Factory Interface, Applying SobelX" << std::endl;
+        auto kernel = KernelFactory::SobelX();
+        traverse([&](int i, int j) { applyKernel(inputGrid, paddedGrid, i, j, kernel); });
     }
+    else if(filterType == "sobely") {
+        std::cout << "\nRunning With Generic Kernel Factory Interface, Applying SobelY" << std::endl;
+        auto kernel = KernelFactory::SobelY();
+        traverse([&](int i, int j) { applyKernel(inputGrid, paddedGrid, i, j, kernel); });
+    }else if(filterType == "gaussian") {
+        std::cout << "\nRunning With Generic Kernel Factory Interface, Applying Gaussian" << std::endl;
+        auto kernel = KernelFactory::GaussianBlur(kernelSize);
+        traverse([&](int i, int j) { applyKernel(inputGrid, paddedGrid, i, j, kernel); });
+    }
+    
     std::cout << "\nInput Pix[0,0]:\t" << (int)inputGrid[height / 2, width / 2].r << " "
               << (int)inputGrid[height / 2, width / 2].g << " "
               << (int)inputGrid[height / 2, width / 2].b << "\n";
